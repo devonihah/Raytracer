@@ -13,96 +13,89 @@
 #include "camera.h"
 #include "object.h"
 
-void setupRenderCam(camera &cam)
-{
-	//Image
-	const auto aspect_ratio = 1.0 / 1.0;
-	const int imageWidth = 512;
-	const int imageHeight = static_cast<int>(imageWidth / aspect_ratio);
+constexpr int ImageWidth = 512;
+constexpr double AspectRatio = 1.0 / 1.0;
 
-	//Camera
-	auto viewportHeight = 1.0;
-	auto viewport_width = aspect_ratio * viewportHeight;
-	auto focalLength = 1.0;
+void setupRenderCam(camera &cam) {
+    // Image
+    const auto aspect_ratio = 1.0 / 1.0;
+    const int imageWidth = ImageWidth;
+    const int imageHeight = static_cast<int>(imageWidth / aspect_ratio);
 
-	auto origin = point3(0, 0, 1);
-	auto horizontal = vec3(viewport_width, 0, 0);
-	auto vertical = vec3(0, viewportHeight, 0);
-	auto lowerLeftCorner = origin - horizontal / 2 - vertical / 2 - vec3(0, 0, focalLength);
+    // Camera
+    auto viewportHeight = 1.0;
+    auto viewport_width = aspect_ratio * viewportHeight;
+    auto focalLength = 1.0;
 
-	//Set values
-	cam.setValues(aspect_ratio, imageWidth, viewportHeight, focalLength, origin);
+    auto origin = point3(0, 0, 1);
+    auto horizontal = vec3(viewport_width, 0, 0);
+    auto vertical = vec3(0, viewportHeight, 0);
+    auto lowerLeftCorner = origin - horizontal / 2 - vertical / 2 - vec3(0, 0, focalLength);
+
+    // Set values
+    cam.setValues(aspect_ratio, imageWidth, viewportHeight, focalLength, origin);
 }
 
-int main(int argc, char *argv[])
-{
-//Output file
-	std::ofstream out(argv[1]);                                      // Check if out.txt file opens
-	if (!out)
-	{
-		std::cerr << "Unable to open the output file.";
-		return 2;
-	}
+void renderImage(std::ostream &out, const camera &cam, const render &rayTracer) {
+    out << "P3\n" << cam.imageWidth << ' ' << cam.imageHeight << "\n255\n";
 
-//Camera
-	camera cam;
-	setupRenderCam(cam);
+    // Lights
+    std::vector<light> lights;
+    lights.push_back(light(vec3(0.0, 1.0, 0.0), color(1.0, 1.0, 1.0), 1.0));
+    rayTracer.setLights(lights);
 
-//Renderer
-	render rayTracer;
+    // Objects
+    rayTracer.sceneObjects.push_back(std::make_unique<polygon>(vec3(0.0, -0.7, -0.5), vec3(1.0, 0.4, -1.0),
+        vec3(0.0, -0.7, -1.5), 0.9, 1.0, 0.1, vec3(0.0, 0.0, 1.0), vec3(1.0, 1.0, 1.0), 4.0, 0.0));
+    rayTracer.sceneObjects.push_back(std::make_unique<polygon>(vec3(0.0, -0.7, -0.5), vec3(0.0, -0.7, -1.5),
+        vec3(-1.0, 0.4, -1.0), 0.9, 1.0, 0.1, vec3(1.0, 1.0, 0.0), vec3(1.0, 1.0, 1.0), 4.0, 0.0));
 
-	out << "P3\n" << cam.imageWidth << ' ' << cam.imageHeight << "\n255\n";
+    // Render out the image
+    for (int j = cam.imageHeight - 1; j >= 0; --j) {
+        std::cerr << "\rScanlines remaining: " << j << ' ' << std::flush;
 
-//Lights
-	std::vector<light> lights;
-	lights.push_back(light(vec3(0.0, 1.0, 0.0), color(1.0, 1.0, 1.0), 1.0));
-	rayTracer.setLights(lights);
+        for (int i = 0; i < cam.imageWidth; ++i) {
+            auto u = double(i) / (cam.imageWidth - 1);
+            auto v = double(j) / (cam.imageHeight - 1);
 
-//Objects
-	///*
+            ray r(cam.origin, cam.lowerLeftCorner + u * cam.horizontal + v * cam.vertical - cam.origin);
 
-	//Polygons
-	rayTracer.sceneObjects.push_back(std::make_unique<polygon>(vec3(0.0, -0.7, -0.5), vec3(1.0, 0.4, -1.0),
-		vec3(0.0, -0.7, -1.5), 0.9, 1.0, 0.1, vec3(0.0, 0.0, 1.0), vec3(1.0, 1.0, 1.0), 4.0, 0.0));
-	rayTracer.sceneObjects.push_back(std::make_unique<polygon>(vec3(0.0, -0.7, -0.5), vec3(0.0, -0.7, -1.5),
-		vec3(-1.0, 0.4, -1.0), 0.9, 1.0, 0.1, vec3(1.0, 1.0, 0.0), vec3(1.0, 1.0, 1.0), 4.0, 0.0));
+            color defaultColor = color(0.2, 0.2, 0.2);
+            color pixel_color = defaultColor;
+            pixel_color = rayTracer.getPixelColor(defaultColor, r);
 
-//Render out the image
-	for (int j = cam.imageHeight - 1; j >= 0; --j) {
-		std::cerr << "\rScanlines remaining: " << j << ' ' << std::flush;
-
-		for (int i = 0; i < cam.imageWidth; ++i) {
-			auto u = double(i) / (cam.imageWidth - 1);
-			auto v = double(j) / (cam.imageHeight - 1);
-
-			ray r(cam.origin, cam.lowerLeftCorner + u * cam.horizontal + v * cam.vertical - cam.origin);
-
-			color defaultColor = color(0.2, 0.2, 0.2);
-			color pixel_color = defaultColor;
-			pixel_color = rayTracer.getPixelColor(defaultColor, r);
-			/*
-			for (int k = 0; k < rayTracer.sceneObjects.size(); ++k)
-			{
-				pixel_color = rayTracer.ray_color(r, *static_cast<polygon*>(rayTracer.sceneObjects.at(k).get()));
-				if (pixel_color == defaultColor)
-				{
-					pixel_color = rayTracer.ray_color(r, *static_cast<sphere*>(rayTracer.sceneObjects.at(k).get()));
-				}
-				
-				if (pixel_color != defaultColor) break;
-			}
-			*/
-			
-			write_color(out, pixel_color);
-		}
-	}
+            write_color(out, pixel_color);
+        }
+    }
 
     std::cerr << "\nDone.\n";
+}
 
-//Open image file after render is finished
-	LPCWSTR open = L"open";
-	LPCWSTR file = L"C://Users//devon//source//repos//Raytracer//Raytracer//RaytracedImage.ppm";
-	ShellExecute(NULL, open, file, NULL, NULL, SW_SHOWNORMAL);
+int main(int argc, char *argv[]) {
+    if (argc < 2) {
+        std::cerr << "Usage: " << argv[0] << " <output_file_path>\n";
+        return 1;
+    }
 
-	return 0;
+    const std::string outputFilePath = argv[1];
+
+    std::ofstream out(outputFilePath);
+    if (!out) {
+        std::cerr << "Unable to open the output file.\n";
+        return 2;
+    }
+
+    camera cam;
+    setupRenderCam(cam);
+
+    render rayTracer;
+
+    renderImage(out, cam, rayTracer);
+
+    // Open image file after render is finished
+    LPCWSTR open = L"open";
+    LPCWSTR file = L"C://Users//devon//source//repos//Raytracer//Raytracer//RaytracedImage.ppm";
+    ShellExecute(NULL, open, file, NULL, NULL, SW_SHOWNORMAL);
+
+    return 0;
 }
