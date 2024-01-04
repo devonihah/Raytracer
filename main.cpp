@@ -16,6 +16,38 @@
 constexpr int ImageWidth = 512;
 constexpr double AspectRatio = 1.0 / 1.0;
 
+void setupRenderCam(camera &cam);
+void renderImage(std::ostream &out, const camera &cam, const render &rayTracer);
+
+int main(int argc, char *argv[]) {
+    if (argc < 2) {
+        std::cerr << "Usage: " << argv[0] << " <output_file_path>\n";
+        return 1;
+    }
+
+    const std::string outputFilePath = argv[1];
+
+    std::ofstream out(outputFilePath);
+    if (!out) {
+        std::cerr << "Unable to open the output file.\n";
+        return 2;
+    }
+
+    camera cam;
+    setupRenderCam(cam);
+
+    render rayTracer;
+
+    renderImage(out, cam, rayTracer);
+
+    // Open image file after render is finished
+    LPCWSTR open = L"open";
+    LPCWSTR file = L"C://Users//devon//source//repos//Raytracer//Raytracer//RaytracedImage.ppm";
+    ShellExecute(NULL, open, file, NULL, NULL, SW_SHOWNORMAL);
+
+    return 0;
+}
+
 void setupRenderCam(camera &cam) {
     // Image
     const auto aspect_ratio = 1.0 / 1.0;
@@ -69,33 +101,4 @@ void renderImage(std::ostream &out, const camera &cam, const render &rayTracer) 
     }
 
     std::cerr << "\nDone.\n";
-}
-
-int main(int argc, char *argv[]) {
-    if (argc < 2) {
-        std::cerr << "Usage: " << argv[0] << " <output_file_path>\n";
-        return 1;
-    }
-
-    const std::string outputFilePath = argv[1];
-
-    std::ofstream out(outputFilePath);
-    if (!out) {
-        std::cerr << "Unable to open the output file.\n";
-        return 2;
-    }
-
-    camera cam;
-    setupRenderCam(cam);
-
-    render rayTracer;
-
-    renderImage(out, cam, rayTracer);
-
-    // Open image file after render is finished
-    LPCWSTR open = L"open";
-    LPCWSTR file = L"C://Users//devon//source//repos//Raytracer//Raytracer//RaytracedImage.ppm";
-    ShellExecute(NULL, open, file, NULL, NULL, SW_SHOWNORMAL);
-
-    return 0;
 }
